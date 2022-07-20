@@ -43,15 +43,18 @@ bool LRUReplacer::Victim(frame_id_t *frame_id) {
     // parameter and return True. If the Replacer is empty return False.
     lru_latch_.lock();
     frame_id_t f_id = getTail();
+    // printf("f_id is %d \n", f_id);
     if (f_id == -1) {
         frame_id = nullptr;
         lru_latch_.unlock();
         return false;
     }
-    *frame_id = f_id;
-    deleteFrame(f_id);
-    lru_latch_.unlock();
-    return true;
+    else {
+        *frame_id = f_id;
+        deleteFrame(f_id);
+        lru_latch_.unlock();
+        return true;
+    }
 }
 
 void LRUReplacer::Pin(frame_id_t frame_id) {
@@ -59,17 +62,25 @@ void LRUReplacer::Pin(frame_id_t frame_id) {
     // BufferPoolManager. It should remove the frame containing the pinned 
     // page from the LRUReplacer.
     lru_latch_.lock();
+    // printf("frame_id is %d\n", frame_id);
+    // printf("f_id is %d\n", getTail());
     deleteFrame(frame_id);
     lru_latch_.unlock();
 }
 
 void LRUReplacer::Unpin(frame_id_t frame_id) {
+    // This method should be called when the `pin_count` of a page becomes 0.
+    // This method should add the frame containing the unpinned page to the `LRUReplacer`.
     lru_latch_.lock();
+    // printf("unpin\n");
     put(frame_id);
     lru_latch_.unlock();
 }
 
-size_t LRUReplacer::Size() { return 0; }
+size_t LRUReplacer::Size() {
+    // This method returns the number of frames that are currently in the `LRUReplacer`.
+    return size;
+}
 
 // The following functions were implemented.
 
@@ -77,43 +88,63 @@ void LRUReplacer::moveToHead(ListNode *node){
     node->prev->next = node->next;
     node->next->prev = node->prev;
 
-    dummyHead->next->prev = node;
-    dummyHead->next = node;
     node->next = dummyHead->next;
     node->prev = dummyHead;
+
+    dummyHead->next->prev = node;
+    dummyHead->next = node;
+
 }
 
 void LRUReplacer::addToHead(ListNode *node){
-    dummyHead->next->prev = node;
-    dummyHead->next = node;
     node->next = dummyHead->next;
     node->prev = dummyHead;
+    
+    dummyHead->next->prev = node;
+    dummyHead->next = node;
+
 }
 
 void LRUReplacer::removeNode(ListNode *node){
+    
+    // dummyTail->prev = node->prev;
+    // dummyTail = node->prev->next;
+
     node->prev->next = node->next;
     node->next->prev = node->prev;
+
 }
 
 void LRUReplacer::put(frame_id_t frame_id) {
     if(cache.find(frame_id) == cache.end()){ //Can not find the frame_id in cache
+        // printf("Can not find the frame_id in cache\n");
         ListNode *node = new ListNode(frame_id);
         cache[frame_id] = node;
         addToHead(node);
         size++;
     }
+    // else{
+    //     printf("Can find the frame_id in cache\n");
+    //     ListNode *node = cache[frame_id];
+    //     moveToHead(node);
+    // }
 }
 
 void LRUReplacer::deleteFrame(frame_id_t frame_id) {
     if(cache.find(frame_id) != cache.end()){ //If frame_id was found in cache
+        // printf("frame_id was found in cache\n");
         ListNode *node = cache[frame_id];
+        cache.erase(frame_id);
         removeNode(node);
         size--;
     }
+    else{
+        // printf("frame_id was not found in cache\n");
+        }
 }
 
   frame_id_t LRUReplacer::getTail() {
-    return dummyTail->frame_id;
+    return dummyTail->prev->frame_id;
   }
 }  // namespace bustub
 
